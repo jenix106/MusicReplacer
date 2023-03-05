@@ -6,7 +6,9 @@ namespace MusicReplacer
 {
     public class MusicModule : LevelModule
     {
+        public string explanation = null;
         public Dictionary<string, string> waveIDs = new Dictionary<string, string>();
+        public Dictionary<string, Vector2> loopTimes = new Dictionary<string, Vector2>();
         List<WaveSpawner> spawners = new List<WaveSpawner>();
         public override void Update()
         {
@@ -15,7 +17,7 @@ namespace MusicReplacer
             {
                 if (spawner != null && !spawners.Contains(spawner))
                 {
-                    spawner.gameObject.AddComponent<MusicComponent>().Setup(waveIDs);
+                    spawner.gameObject.AddComponent<MusicComponent>().Setup(waveIDs, loopTimes);
                     spawners.Add(spawner);
                 }
             }
@@ -29,6 +31,8 @@ namespace MusicReplacer
         AudioClip defaultClip;
         AudioClip defaultStep;
         Dictionary<string, string> waveIDs = new Dictionary<string, string>();
+        Dictionary<string, Vector2> loopTimes = new Dictionary<string, Vector2>();
+        Dictionary<AudioClip, Vector2> pairedTimes = new Dictionary<AudioClip, Vector2>();
         Dictionary<string, AudioClip> musicAddresses = new Dictionary<string, AudioClip>();
         public void Start()
         {
@@ -39,14 +43,24 @@ namespace MusicReplacer
             {
                 Catalog.LoadAssetAsync<AudioClip>(waveIDs[address], value =>
                 {
-                    if(!musicAddresses.ContainsKey(address))
-                    musicAddresses.Add(address, value);
+                    if (!musicAddresses.ContainsKey(address))
+                        musicAddresses.Add(address, value);
+                    if (!pairedTimes.ContainsKey(value) && loopTimes.ContainsKey(waveIDs[address]))
+                        pairedTimes.Add(value, loopTimes[waveIDs[address]]);
                 }, "MusicReplacer");
             }
         }
-        public void Setup(Dictionary<string, string> waves = null)
+        public void Setup(Dictionary<string, string> waves = null, Dictionary<string, Vector2> times = null)
         {
             waveIDs = waves;
+            loopTimes = times;
+        }
+        public void Update()
+        {
+            if (audio?.clip != null && audio.isPlaying && pairedTimes.ContainsKey(audio.clip) && audio.time >= pairedTimes[audio.clip].y)
+            {
+                audio.time = pairedTimes[audio.clip].x;
+            }
         }
         public void Replace()
         {
@@ -70,6 +84,7 @@ namespace MusicReplacer
             {
                 audio.clip = defaultClip;
             }
+            audio.time = 0;
             audio.Play();
         }
         public void Return()
